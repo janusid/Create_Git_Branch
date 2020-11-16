@@ -1,0 +1,60 @@
+pipeline { 
+    agent any
+    
+	environment {
+        // Github Environment Variables
+		GITHUB_PROJECT = '[url_github_repository]'
+		GITHUB_CREDENTIALS_ID = '[credential_ID]' 
+		GITHUB_BRANCH = '[github_branch_master]'
+		}
+	
+	stages {
+        stage ("Listing Available TAG"){ //It will listing available TAG as based to create Branch
+        steps {
+        script {
+            echo "Initializing workflow" //checkout code
+			echo GITHUB_PROJECT
+			echo GITHUB_BRANCH
+			git branch: GITHUB_BRANCH,
+			    url: GITHUB_PROJECT, 
+			    credentialsId: GITHUB_CREDENTIALS_ID 
+                
+			sh 'git tag -l | awk \'{print $1}\' > tags.txt'
+            sh 'cut -d "/" -f 2 tags.txt > tag.txt'
+				}
+			}
+		}
+	
+	    stage ("Branch Name Based on TAG"){
+			steps {
+			script {
+                pilih = readFile "tag.txt"
+			    echo "please click on the link here to choose the TAG"
+			    env.TAG_NAME = input message: "Please choose the TAG", ok: "Validate!",
+			    parameters: [choice(name: 'TAG_NAME', 
+			    choices: "${pilih}", 
+			    description: 'Branch to Create?')]
+			    }
+			}
+		}
+			
+		stage ("Create the Branch"){
+		    steps {
+		    script {
+            echo "${env.TAG_NAME}" 
+            
+            echo "please click on the link here to create a Branch"
+            env.BRANCH_NAME = input message: "Type the Branch Name", ok: "Validate!", 
+            parameters: [string(defaultValue: '', 
+            description: 'Type the Branch Name', 
+            name: 'Branch Name', trim: true)]
+               
+               //git checkout -b [new_branch}] [tag_version] 
+               sh "git checkout -b ${env.BRANCH_NAME} ${env.TAG_NAME}" //create branch based on tag
+               sh "git push origin ${env.BRANCH_NAME}" //push the branch to repository
+			   }
+			}
+		}
+		
+    }
+}
